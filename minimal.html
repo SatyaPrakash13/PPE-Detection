@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Live Camera Upload</title>
+  <style>
+    video, canvas { display: block; margin-top: 10px; }
+    canvas { border: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <h3>Capture from Camera and Upload to Firestore</h3>
+
+  <video id="video" width="320" height="240" autoplay></video>
+  <button id="snap">📸 Take Photo</button>
+  <canvas id="canvas" width="320" height="240" style="display:none;"></canvas>
+  <br>
+  <button id="uploadBtn">Upload to Firebase</button>
+  <p id="status"></p>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import {
+      getFirestore,
+      collection,
+      addDoc,
+      getDocs,
+      query,
+      orderBy,
+      limit
+    } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    // ✅ Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCxD3J0pYjVY5ZaM7UeIyaVMluZoC0U9KY",
+      authDomain: "ppedetection-294a3.firebaseapp.com",
+      projectId: "ppedetection-294a3",
+      storageBucket: "ppedetection-294a3.appspot.com",
+      messagingSenderId: "949323509194",
+      appId: "1:949323509194:web:b822f2fcddd36c198bf333",
+      measurementId: "G-3KSFPPGGVY"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+    let base64Image = null;
+
+    // ✅ Access Camera
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+      })
+      .catch(err => {
+        alert("Camera access denied or not supported.");
+        console.error(err);
+      });
+
+    // ✅ Take snapshot
+    document.getElementById("snap").addEventListener("click", () => {
+      context.drawImage(video, 0, 0, 320, 240);
+      canvas.style.display = "block";
+      base64Image = canvas.toDataURL("image/png");
+    });
+
+    // ✅ Upload to Firestore
+    document.getElementById("uploadBtn").addEventListener("click", async () => {
+      if (!base64Image) {
+        alert("Take a photo first!");
+        return;
+      }
+
+      try {
+        const imgRef = collection(db, "PPE_IMAGES");
+        const q = query(imgRef, orderBy("image_no", "desc"), limit(1));
+        const snapshot = await getDocs(q);
+
+        let nextNo = 1;
+        if (!snapshot.empty) {
+          const last = snapshot.docs[0].data();
+          nextNo = (parseInt(last.image_no) || 0) + 1;
+        }
+
+        await addDoc(imgRef, {
+          image_no: nextNo,
+          image_b64: base64Image,
+          ppe_score: 0.6
+        });
+
+        document.getElementById("status").textContent = `✅ Uploaded image_no ${nextNo}`;
+      } catch (err) {
+        console.error(err);
+        document.getElementById("status").textContent = "❌ Upload failed.";
+      }
+    });
+  </script>
+</body>
+</html>

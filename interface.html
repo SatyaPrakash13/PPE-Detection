@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VSP User Image Uploader</title>
+</head>
+<body>
+  <h2>Fetch VSP User and Upload Reference Image</h2>
+
+  <label>Enter Employee Number (vsp_eno):</label>
+  <input type="text" id="vsp_eno_input" />
+  <button id="fetchBtn">Fetch User</button>
+
+  <div id="userDetails" style="display:none; margin-top:20px;">
+    <p><strong>Name:</strong> <span id="vsp_ename"></span></p>
+    <p><strong>Email:</strong> <span id="vsp_email"></span></p>
+    <p><strong>Phone:</strong> <span id="vsp_phone"></span></p>
+    <p><strong>Designation:</strong> <span id="vsp_designation"></span></p>
+    <p><strong>Department:</strong> <span id="vsp_dept"></span></p>
+    <p><strong>Shift:</strong> <span id="vsp_shift"></span></p>
+    <p><strong>Status:</strong> <span id="vsp_status"></span></p>
+
+    <label>Upload Reference Image:</label>
+    <input type="file" id="image_input" accept="image/*" /><br><br>
+    <button id="uploadBtn">Upload Image</button>
+
+    <p id="uploadStatus" style="color: green;"></p>
+    <img id="previewImage" style="max-width: 300px; display: none;" />
+  </div>
+
+  <!-- Firebase SDK (Modular) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCxD3J0pYjVY5ZaM7UeIyaVMluZoC0U9KY",
+      authDomain: "ppedetection-294a3.firebaseapp.com",
+      projectId: "ppedetection-294a3",
+      storageBucket: "ppedetection-294a3.appspot.com",
+      messagingSenderId: "949323509194",
+      appId: "1:949323509194:web:b822f2fcddd36c198bf333",
+      measurementId: "G-3KSFPPGGVY"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let currentEno = '';
+
+    document.getElementById('fetchBtn').addEventListener('click', async () => {
+      const eno = document.getElementById("vsp_eno_input").value.trim();
+      if (!eno) {
+        alert("Please enter an employee number.");
+        return;
+      }
+
+      const userRef = doc(db, "VSP_USERS", eno);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        alert("User not found in Firestore.");
+        return;
+      }
+
+      const user = userSnap.data();
+      currentEno = eno;
+
+      document.getElementById("vsp_ename").textContent = user.vsp_ename || "";
+      document.getElementById("vsp_email").textContent = user.vsp_email || "";
+      document.getElementById("vsp_phone").textContent = user.vsp_phone || "";
+      document.getElementById("vsp_designation").textContent = user.vsp_designation || "";
+      document.getElementById("vsp_dept").textContent = user.vsp_dept || "";
+      document.getElementById("vsp_shift").textContent = user.vsp_shift || "";
+      document.getElementById("vsp_status").textContent = user.vsp_status || "";
+
+      document.getElementById("userDetails").style.display = "block";
+    });
+
+    document.getElementById('uploadBtn').addEventListener('click', () => {
+      const fileInput = document.getElementById("image_input");
+      const file = fileInput.files[0];
+
+      if (!file || !currentEno) {
+        alert("Please select an image and fetch a user first.");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const base64Image = e.target.result;
+
+        const imageDoc = {
+          image_no: currentEno,
+          image_b64: base64Image
+        };
+
+        await setDoc(doc(db, "PPE_IMAGES", currentEno), imageDoc);
+
+        document.getElementById("uploadStatus").textContent = "Image uploaded successfully!";
+        document.getElementById("previewImage").src = base64Image;
+        document.getElementById("previewImage").style.display = "block";
+      };
+
+      reader.readAsDataURL(file); // Convert image to base64
+    });
+  </script>
+</body>
+</html>
